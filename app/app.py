@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import logging
 import os
 import re
+import socket
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -35,6 +36,30 @@ if MODO == "sqlserver" and not all(DB_CONFIG.values()):
         "Faltan variables de entorno para SQL Server: "
         "GUT_DB_SERVER, GUT_DB_NAME, GUT_DB_USER, GUT_DB_PASSWORD"
     )
+
+def _net_check():
+    host = os.getenv("GUT_NET_CHECK_HOST", "").strip()
+    port = os.getenv("GUT_NET_CHECK_PORT", "").strip()
+    if not host or not port:
+        log.info("Net check: deshabilitado (definí GUT_NET_CHECK_HOST y GUT_NET_CHECK_PORT en .env para activar)")
+        return
+    try:
+        port_int = int(port)
+    except ValueError:
+        log.warning("Net check: GUT_NET_CHECK_PORT='%s' no es un número, se omite", port)
+        return
+    timeout = float(os.getenv("GUT_NET_CHECK_TIMEOUT", "5"))
+    log.info("Net check: probando TCP %s:%s (timeout=%ss)...", host, port_int, timeout)
+    try:
+        with socket.create_connection((host, port_int), timeout=timeout):
+            log.info("Net check OK: %s:%s alcanzable desde el contenedor", host, port_int)
+    except socket.timeout:
+        log.error("Net check FAIL: timeout conectando a %s:%s — el contenedor no rutea o hay firewall", host, port_int)
+    except OSError as e:
+        log.error("Net check FAIL: %s:%s no alcanzable (%s)", host, port_int, e)
+
+if MODO == "sqlserver":
+    _net_check()
 
 TABLE_NAME   = "TW_Usuarios"
 SEARCH_FIELD = "CUIT"
@@ -69,8 +94,10 @@ def get_connection():
             f"UID={DB_CONFIG['username']};"
             f"PWD={DB_CONFIG['password']};"
             f"TrustServerCertificate=yes;"
+            f"Connection Timeout=5;"
         )
-        return pyodbc.connect(conn_str), "sqlserver"
+        log.info("Conectando a SQL Server: server=%s db=%s user=%s", DB_CONFIG['server'], DB_CONFIG['database'], DB_CONFIG['username'])
+        return pyodbc.connect(conn_str, timeout=5), "sqlserver"
 
 
 def init_sqlite():

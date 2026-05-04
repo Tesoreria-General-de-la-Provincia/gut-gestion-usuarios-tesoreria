@@ -1,0 +1,9 @@
+services:
+  gut:
+    build: .
+    container_name: gut
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

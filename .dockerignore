@@ -1,0 +1,10 @@
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+app/gut_dev.db
+*.md
+iniciar.bat
+.vscode/
+.idea/

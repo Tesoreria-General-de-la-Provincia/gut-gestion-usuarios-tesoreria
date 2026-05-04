@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# uv
+.uv/
+
+# Secrets
+.env
+.env.local
+
+# SQLite dev DB (se genera con datos seed al arrancar)
+app/gut_dev.db
+*.db-journal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

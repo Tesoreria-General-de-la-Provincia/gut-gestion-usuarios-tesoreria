@@ -113,6 +113,7 @@ def get_connection():
             f"DATABASE={DB_CONFIG['database']};"
             f"UID={DB_CONFIG['username']};"
             f"PWD={DB_CONFIG['password']};"
+            f"Encrypt=no;"
             f"TrustServerCertificate=yes;"
             f"Connection Timeout=5;"
         )

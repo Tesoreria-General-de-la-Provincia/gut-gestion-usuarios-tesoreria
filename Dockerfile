@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
@@ -12,7 +12,8 @@ RUN apt-get update \
  && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/mssql-release.list \
  && apt-get update \
  && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql17 unixodbc \
- && apt-get purge -y --auto-remove curl gnupg \
+ && ls /opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17*.so* \
+ && apt-get purge -y curl gnupg \
  && rm -rf /var/lib/apt/lists/*
 
 COPY app/pyproject.toml ./

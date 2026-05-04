@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import socket
+import subprocess
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -40,23 +41,42 @@ if MODO == "sqlserver" and not all(DB_CONFIG.values()):
 def _net_check():
     host = os.getenv("GUT_NET_CHECK_HOST", "").strip()
     port = os.getenv("GUT_NET_CHECK_PORT", "").strip()
-    if not host or not port:
-        log.info("Net check: deshabilitado (definí GUT_NET_CHECK_HOST y GUT_NET_CHECK_PORT en .env para activar)")
-        return
-    try:
-        port_int = int(port)
-    except ValueError:
-        log.warning("Net check: GUT_NET_CHECK_PORT='%s' no es un número, se omite", port)
-        return
     timeout = float(os.getenv("GUT_NET_CHECK_TIMEOUT", "5"))
-    log.info("Net check: probando TCP %s:%s (timeout=%ss)...", host, port_int, timeout)
+
+    if not host:
+        log.info("Net check: deshabilitado (definí GUT_NET_CHECK_HOST en .env para activar)")
+        return
+
+    if port:
+        try:
+            port_int = int(port)
+        except ValueError:
+            log.warning("Net check: GUT_NET_CHECK_PORT='%s' no es un número, se omite", port)
+            return
+        log.info("Net check (TCP): probando %s:%s (timeout=%ss)...", host, port_int, timeout)
+        try:
+            with socket.create_connection((host, port_int), timeout=timeout):
+                log.info("Net check OK: %s:%s alcanzable desde el contenedor", host, port_int)
+        except socket.timeout:
+            log.error("Net check FAIL: timeout conectando a %s:%s — el contenedor no rutea o hay firewall", host, port_int)
+        except OSError as e:
+            log.error("Net check FAIL: %s:%s no alcanzable (%s)", host, port_int, e)
+        return
+
+    log.info("Net check (ICMP): ping a %s (timeout=%ss)...", host, timeout)
     try:
-        with socket.create_connection((host, port_int), timeout=timeout):
-            log.info("Net check OK: %s:%s alcanzable desde el contenedor", host, port_int)
-    except socket.timeout:
-        log.error("Net check FAIL: timeout conectando a %s:%s — el contenedor no rutea o hay firewall", host, port_int)
-    except OSError as e:
-        log.error("Net check FAIL: %s:%s no alcanzable (%s)", host, port_int, e)
+        res = subprocess.run(
+            ["ping", "-c", "2", "-W", str(int(timeout)), host],
+            capture_output=True, text=True, timeout=timeout + 5,
+        )
+        if res.returncode == 0:
+            log.info("Net check OK: %s responde a ping desde el contenedor", host)
+        else:
+            log.error("Net check FAIL: %s NO responde a ping (rc=%s). stderr=%s", host, res.returncode, res.stderr.strip() or res.stdout.strip())
+    except FileNotFoundError:
+        log.error("Net check FAIL: el binario 'ping' no está instalado en la imagen")
+    except subprocess.TimeoutExpired:
+        log.error("Net check FAIL: ping a %s expiró (timeout)", host)
 
 if MODO == "sqlserver":
     _net_check()
